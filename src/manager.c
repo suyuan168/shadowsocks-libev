@@ -114,7 +114,10 @@ build_config(char *prefix, struct manager_ctx *manager, struct server *server)
     }
     fprintf(f, "{\n");
     fprintf(f, "\"server_port\":%d,\n", atoi(server->port));
-    fprintf(f, "\"password\":\"%s\"", server->password);
+    if (server->password[0] != 0)
+        fprintf(f, "\"password\":\"%s\"", server->password);
+    if (server->key[0] != 0)
+        fprintf(f, "\"key\":\"%s\"", server->key);
     if (server->method)
         fprintf(f, ",\n\"method\":\"%s\"", server->method);
     else if (manager->method)
@@ -307,6 +310,10 @@ get_server(char *buf, int len)
             } else if (strcmp(name, "password") == 0) {
                 if (value->type == json_string) {
                     strncpy(server->password, value->u.string.ptr, 127);
+                }
+            } else if (strcmp(name, "key") == 0) {
+                if (value->type == json_string) {
+                    strncpy(server->key, value->u.string.ptr, 127);
                 }
             } else if (strcmp(name, "method") == 0) {
                 if (value->type == json_string) {
@@ -632,7 +639,7 @@ manager_recv_cb(EV_P_ ev_io *w, int revents)
     if (strcmp(action, "add") == 0) {
         struct server *server = get_server(buf, r);
 
-        if (server == NULL || server->port[0] == 0 || server->password[0] == 0) {
+        if (server == NULL || server->port[0] == 0 || (server->password[0] == 0 && server->key[0] == 0)) {
             LOGE("invalid command: %s:%s", buf, get_data(buf, r));
             if (server != NULL) {
                 destroy_server(server);
@@ -669,8 +676,9 @@ manager_recv_cb(EV_P_ ev_io *w, int revents)
         while ((entry = cork_hash_table_iterator_next(&iter)) != NULL) {
             struct server *server = (struct server *)entry->value;
             char *method          = server->method ? server->method : manager->method;
+            char *passkey         = server->key ? server->key : server->password;
             size_t pos            = strlen(buf);
-            size_t entry_len      = strlen(server->port) + strlen(server->password) + strlen(method);
+            size_t entry_len      = strlen(server->port) + strlen(passkey) + strlen(method);
             if (pos > BUF_SIZE - entry_len - 50) {
                 if (sendto(manager->fd, buf, pos, 0, (struct sockaddr *)&claddr, len)
                     != pos) {
@@ -679,8 +687,14 @@ manager_recv_cb(EV_P_ ev_io *w, int revents)
                 memset(buf, 0, BUF_SIZE);
                 pos = 0;
             }
-            sprintf(buf + pos, "\n\t{\"server_port\":\"%s\",\"password\":\"%s\",\"method\":\"%s\"},",
+            if (server->password[0] == 0) {
+                sprintf(buf + pos, "\n\t{\"server_port\":\"%s\",\"password\":\"%s\",\"method\":\"%s\"},",
                     server->port, server->password, method);
+            }
+            if (server->key[0] == 0) {
+                sprintf(buf + pos, "\n\t{\"server_port\":\"%s\",\"key\":\"%s\",\"method\":\"%s\"},",
+                    server->port, server->key, method);
+            }
         }
 
         size_t pos = strlen(buf);
@@ -865,6 +879,7 @@ main(int argc, char **argv)
     char *acl             = NULL;
     char *user            = NULL;
     char *password        = NULL;
+    char *key             = NULL;
     char *timeout         = NULL;
     char *method          = NULL;
     char *pid_path        = NULL;
@@ -908,6 +923,7 @@ main(int argc, char **argv)
         { "plugin",          required_argument, NULL, GETOPT_VAL_PLUGIN      },
         { "plugin-opts",     required_argument, NULL, GETOPT_VAL_PLUGIN_OPTS },
         { "password",        required_argument, NULL, GETOPT_VAL_PASSWORD    },
+        { "key",             required_argument, NULL, GETOPT_VAL_KEY         },
         { "workdir",         required_argument, NULL, GETOPT_VAL_WORKDIR     },
         { "help",            no_argument,       NULL, GETOPT_VAL_HELP        },
         { NULL,              0,                 NULL, 0                      }
@@ -958,6 +974,9 @@ main(int argc, char **argv)
         case GETOPT_VAL_PASSWORD:
         case 'k':
             password = optarg;
+            break;
+        case GETOPT_VAL_KEY:
+            key = optarg;
             break;
         case 'f':
             pid_flags = 1;
@@ -1030,6 +1049,9 @@ main(int argc, char **argv)
         }
         if (password == NULL) {
             password = conf->password;
+        }
+        if (key == NULL) {
+            key = conf->key;
         }
         if (method == NULL) {
             method = conf->method;
@@ -1148,6 +1170,7 @@ main(int argc, char **argv)
     manager.verbose         = verbose;
     manager.mode            = mode;
     manager.password        = password;
+    manager.key             = key;
     manager.timeout         = timeout;
     manager.method          = method;
     manager.iface           = iface;
@@ -1233,6 +1256,13 @@ main(int argc, char **argv)
             memset(server, 0, sizeof(struct server));
             strncpy(server->port, conf->port_password[i].port, 7);
             strncpy(server->password, conf->port_password[i].password, 127);
+            add_server(&manager, server);
+        }
+        for (i = 0; i < conf->port_key_num; i++) {
+            struct server *server = ss_malloc(sizeof(struct server));
+            memset(server, 0, sizeof(struct server));
+            strncpy(server->port, conf->port_key[i].port, 7);
+            strncpy(server->key, conf->port_key[i].key, 127);
             add_server(&manager, server);
         }
     }

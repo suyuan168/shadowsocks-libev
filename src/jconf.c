@@ -236,6 +236,21 @@ read_jconf(const char *file)
                         }
                     }
                 }
+            } else if (strcmp(name, "port_key") == 0) {
+                if (value->type == json_object) {
+                    for (j = 0; j < value->u.object.length; j++) {
+                        if (j >= MAX_PORT_NUM) {
+                            break;
+                        }
+                        json_value *v = value->u.object.values[j].value;
+                        if (v->type == json_string) {
+                            conf.port_key[j].port = ss_strndup(value->u.object.values[j].name,
+                                                                    value->u.object.values[j].name_length);
+                            conf.port_key[j].key = to_string(v);
+                            conf.port_key_num         = j + 1;
+                        }
+                    }
+                }
             } else if (strcmp(name, "server_port") == 0) {
                 conf.remote_port = to_string(value);
             } else if (strcmp(name, "local_address") == 0) {

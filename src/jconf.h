@@ -50,6 +50,11 @@ typedef struct {
 
 typedef struct {
     char *port;
+    char *key;
+} ss_port_key_t;
+
+typedef struct {
+    char *port;
     int dscp;
 } ss_dscp_t;
 
@@ -58,6 +63,8 @@ typedef struct {
     ss_addr_t remote_addr[MAX_REMOTE_NUM];
     int port_password_num;
     ss_port_password_t port_password[MAX_PORT_NUM];
+    int port_key_num;
+    ss_port_key_t port_key[MAX_PORT_NUM];
     char *remote_port;
     char *local_addr;
     char *local_addr_v4;

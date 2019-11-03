@@ -69,6 +69,7 @@ struct manager_ctx {
 struct server {
     char port[8];
     char password[128];
+    char key[128];
     char fast_open[8];
     char no_delay[8];
     char mptcp[8];
