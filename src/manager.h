@@ -41,6 +41,7 @@ struct manager_ctx {
     int fd;
     int fast_open;
     int no_delay;
+    int mptcp;
     int reuse_port;
     int verbose;
     int mode;
@@ -70,6 +71,7 @@ struct server {
     char password[128];
     char fast_open[8];
     char no_delay[8];
+    char mptcp[8];
     char *mode;
     char *method;
     char *plugin;
