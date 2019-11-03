@@ -127,6 +127,10 @@ build_config(char *prefix, struct manager_ctx *manager, struct server *server)
         fprintf(f, ",\n\"no_delay\": %s", server->no_delay);
     else if (manager->no_delay)
         fprintf(f, ",\n\"no_delay\": true");
+    if (server->mptcp[0])
+        fprintf(f, ",\n\"mptcp\": %s", server->mptcp);
+    else if (manager->mptcp)
+        fprintf(f, ",\n\"mptcp\": true");
     if (server->mode)
         fprintf(f, ",\n\"mode\":\"%s\"", server->mode);
     if (server->plugin)
@@ -191,6 +195,10 @@ construct_command_line(struct manager_ctx *manager, struct server *server)
     if (server->no_delay[0] == 0 && manager->no_delay) {
         int len = strlen(cmd);
         snprintf(cmd + len, BUF_SIZE - len, " --no-delay");
+    }
+    if (server->mptcp[0] == 0 && manager->mptcp) {
+        int len = strlen(cmd);
+        snprintf(cmd + len, BUF_SIZE - len, " --mptcp");
     }
     if (manager->ipv6first) {
         int len = strlen(cmd);
@@ -311,6 +319,10 @@ get_server(char *buf, int len)
             } else if (strcmp(name, "no_delay") == 0) {
                 if (value->type == json_boolean) {
                     strncpy(server->no_delay, (value->u.boolean ? "true" : "false"), 8);
+                }
+            } else if (strcmp(name, "mptcp") == 0) {
+                if (value->type == json_boolean) {
+                    strncpy(server->mptcp, (value->u.boolean ? "true" : "false"), 8);
                 }
             } else if (strcmp(name, "plugin") == 0) {
                 if (value->type == json_string) {
@@ -865,6 +877,7 @@ main(int argc, char **argv)
 
     int fast_open  = 0;
     int no_delay   = 0;
+    int mptcp      = 0;
     int reuse_port = 0;
     int mode       = TCP_ONLY;
     int mtu        = 0;
@@ -884,6 +897,7 @@ main(int argc, char **argv)
     static struct option long_options[] = {
         { "fast-open",       no_argument,       NULL, GETOPT_VAL_FAST_OPEN   },
         { "no-delay",        no_argument,       NULL, GETOPT_VAL_NODELAY     },
+        { "mptcp",           no_argument,       NULL, GETOPT_VAL_MPTCP       },
         { "reuse-port",      no_argument,       NULL, GETOPT_VAL_REUSE_PORT  },
         { "acl",             required_argument, NULL, GETOPT_VAL_ACL         },
         { "manager-address", required_argument, NULL,
@@ -914,6 +928,9 @@ main(int argc, char **argv)
             break;
         case GETOPT_VAL_NODELAY:
             no_delay = 1;
+            break;
+        case GETOPT_VAL_MPTCP:
+            mptcp = 1;
             break;
         case GETOPT_VAL_ACL:
             acl = optarg;
@@ -1029,6 +1046,9 @@ main(int argc, char **argv)
         if (no_delay == 0) {
             no_delay = conf->no_delay;
         }
+        if (mptcp == 0) {
+            mptcp = conf->mptcp;
+        }
         if (reuse_port == 0) {
             reuse_port = conf->reuse_port;
         }
@@ -1102,6 +1122,10 @@ main(int argc, char **argv)
         LOGI("using tcp no-delay");
     }
 
+    if (mptcp == 1) {
+        LOGI("using MPTCP");
+    }
+
     // ignore SIGPIPE
     signal(SIGPIPE, SIG_IGN);
     signal(SIGCHLD, SIG_IGN);
@@ -1120,6 +1144,7 @@ main(int argc, char **argv)
     manager.reuse_port      = reuse_port;
     manager.fast_open       = fast_open;
     manager.no_delay        = no_delay;
+    manager.mptcp           = mptcp;
     manager.verbose         = verbose;
     manager.mode            = mode;
     manager.password        = password;
