@@ -71,6 +71,7 @@ struct server {
     char password[128];
     char key[128];
     char fast_open[8];
+    char reuse_port[8];
     char no_delay[8];
     char mptcp[8];
     char *mode;
