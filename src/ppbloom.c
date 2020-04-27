@@ -80,7 +80,7 @@ ppbloom_add(const void *buffer, int len)
 {
     int err;
     err = bloom_add(ppbloom + current, buffer, len);
-    if (err == -1 || err == 1)
+    if (err == -1)
         return err;
 
     bloom_count[current]++;
@@ -88,8 +88,7 @@ ppbloom_add(const void *buffer, int len)
     if (bloom_count[current] >= entries) {
         bloom_count[current] = 0;
         current              = current == PING ? PONG : PING;
-        bloom_free(ppbloom + current);
-        bloom_init(ppbloom + current, entries, error);
+        bloom_reset(ppbloom + current);
     }
 
     return 0;

@@ -6,11 +6,6 @@ else ()
 endif ()
 
 
-set(SS_SNI_SOURCE
-        http.c
-        tls.c
-        )
-
 set(SS_ACL_SOURCE
         acl.c
         rule.c
@@ -42,7 +37,6 @@ set(LIBSHADOWSOCKS_LIBEV_SOURCE
         local.c
         ${SS_CRYPTO_SOURCE}
         ${SS_PLUGIN_SOURCE}
-        ${SS_SNI_SOURCE}
         ${SS_ACL_SOURCE}
         )
 
@@ -68,7 +62,6 @@ set(SS_SERVER_SOURCE
         server.c
         ${SS_CRYPTO_SOURCE}
         ${SS_PLUGIN_SOURCE}
-        ${SS_SNI_SOURCE}
         ${SS_ACL_SOURCE}
         )
 
@@ -182,6 +175,8 @@ target_compile_definitions(ss-local PUBLIC -DMODULE_LOCAL)
 target_compile_definitions(ss-redir PUBLIC -DMODULE_REDIR)
 target_compile_definitions(shadowsocks-libev PUBLIC -DMODULE_LOCAL -DLIB_ONLY)
 
+target_include_directories(shadowsocks-libev PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
 target_link_libraries(ss-server cork ipset ${DEPS})
 target_link_libraries(ss-tunnel cork ${DEPS})
 target_link_libraries(ss-manager m bloom cork ${LIBEV} ${LIBUDNS})
@@ -212,6 +207,8 @@ target_compile_definitions(ss-manager-shared PUBLIC -DMODULE_MANAGER)
 target_compile_definitions(ss-local-shared PUBLIC -DMODULE_LOCAL)
 target_compile_definitions(ss-redir-shared PUBLIC -DMODULE_REDIR)
 target_compile_definitions(shadowsocks-libev-shared PUBLIC -DMODULE_LOCAL)
+
+target_include_directories(shadowsocks-libev-shared PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 target_link_libraries(ss-server-shared ${DEPS_SHARED})
 target_link_libraries(ss-tunnel-shared ${DEPS_SHARED})

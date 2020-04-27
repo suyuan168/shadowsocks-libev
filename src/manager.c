@@ -134,6 +134,8 @@ build_config(char *prefix, struct manager_ctx *manager, struct server *server)
         fprintf(f, ",\n\"mptcp\": %s", server->mptcp);
     else if (manager->mptcp)
         fprintf(f, ",\n\"mptcp\": true");
+    if (manager->reuse_port)
+        fprintf(f, ",\n\"reuse_port\": true");
     if (server->mode)
         fprintf(f, ",\n\"mode\":\"%s\"", server->mode);
     if (server->plugin)
