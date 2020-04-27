@@ -15,5 +15,19 @@ jobs:
       with:
         submodules: recursive
 
+    - name: install devscripts
+      run: sudo apt-get install --no-install-recommends devscripts equivs
+      
+    - name: mk-build-deps
+      run: mk-build-deps --root-cmd sudo --install --tool "apt-get -o Debug::pkgProblemResolver=yes --no-install-recommends -y"
+
     - name: Build Debian package
-      uses: dawidd6/action-debian-package@v1
+      run: ./autogen.sh && dpkg-buildpackage -b -us -uc
+
+    - name: Move deb packages
+      run: mkdir packages && mv ../*.deb packages/
+      
+    - uses: actions/upload-artifact@v1
+      with:
+        name: Debian packages
+        path: packages
