@@ -23,3 +23,11 @@ jobs:
 
     - name: Build Debian package
       run: ./autogen.sh && dpkg-buildpackage -b -us -uc
+
+    - name: Move deb packages
+      run: mkdir packages && mv ../*.deb packages/
+      
+    - uses: actions/upload-artifact@v1
+      with:
+        name: Debian packages
+        path: pakages
