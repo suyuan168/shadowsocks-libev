@@ -31,13 +31,22 @@ case "$1" in
 		else
 			echo "setcap not installed; ss-* will only be runnable by root."
 		fi
-		if [ ! -f /etc/shadowsocks-libev/config.json ]; then
+		#if [ ! -f /etc/shadowsocks-libev/config.json ]; then
+		#	set +e
+		#	passwd=$(perl -e 'print map{("a".."z","A".."Z",0..9)[int(rand(62))]}(1..12)')
+		#	set -e
+		#	mkdir -p /etc/shadowsocks-libev
+		#	sed "s/barfoo!/$passwd/" /usr/share/shadowsocks-libev/config.json \
+		#		> /etc/shadowsocks-libev/config.json
+		#fi
+		if [ ! -f /etc/shadowsocks-libev/manager.json ]; then
 			set +e
 			passwd=$(perl -e 'print map{("a".."z","A".."Z",0..9)[int(rand(62))]}(1..12)')
 			set -e
 			mkdir -p /etc/shadowsocks-libev
-			sed "s/barfoo!/$passwd/" /usr/share/shadowsocks-libev/config.json \
-				> /etc/shadowsocks-libev/config.json
+			sed "s/MySecretKey/$passwd/" /usr/share/shadowsocks-libev/manager.json \
+				> /etc/shadowsocks-libev/manager.json
+			[ "$(ip -6 a)" = "" ] && sed -i '/"\[::0\]"/d' /etc/shadowsocks-libev/manager.json
 		fi
 		;;
 	abort-upgrade|abort-remove|abort-deconfigure)
