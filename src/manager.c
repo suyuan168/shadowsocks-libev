@@ -126,10 +126,6 @@ build_config(char *prefix, struct manager_ctx *manager, struct server *server)
         fprintf(f, ",\n\"fast_open\": %s", server->fast_open);
     else if (manager->fast_open)
         fprintf(f, ",\n\"fast_open\": true");
-    if (server->reuse_port[0])
-        fprintf(f, ",\n\"reuse_port\": %s", server->reuse_port);
-    else if (manager->reuse_port)
-        fprintf(f, ",\n\"reuse_port\": true");
     if (server->no_delay[0])
         fprintf(f, ",\n\"no_delay\": %s", server->no_delay);
     else if (manager->no_delay)
@@ -198,10 +194,6 @@ construct_command_line(struct manager_ctx *manager, struct server *server)
     if (server->fast_open[0] == 0 && manager->fast_open) {
         int len = strlen(cmd);
         snprintf(cmd + len, BUF_SIZE - len, " --fast-open");
-    }
-    if (server->reuse_port[0] == 0 && manager->reuse_port) {
-        int len = strlen(cmd);
-        snprintf(cmd + len, BUF_SIZE - len, " --reuse-port");
     }
     if (server->no_delay[0] == 0 && manager->no_delay) {
         int len = strlen(cmd);
@@ -326,10 +318,6 @@ get_server(char *buf, int len)
             } else if (strcmp(name, "fast_open") == 0) {
                 if (value->type == json_boolean) {
                     strncpy(server->fast_open, (value->u.boolean ? "true" : "false"), 8);
-                }
-            } else if (strcmp(name, "reuse_port") == 0) {
-                if (value->type == json_boolean) {
-                    strncpy(server->reuse_port, (value->u.boolean ? "true" : "false"), 8);
                 }
             } else if (strcmp(name, "no_delay") == 0) {
                 if (value->type == json_boolean) {
