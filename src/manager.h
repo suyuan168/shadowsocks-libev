@@ -55,6 +55,7 @@ struct manager_ctx {
     char *plugin;
     char *plugin_opts;
     char *manager_address;
+    char *local_addr;
     char **hosts;
     int host_num;
     char *nameservers;
@@ -70,6 +71,7 @@ struct server {
     char port[8];
     char password[128];
     char key[128];
+    char local_addr[128];
     char fast_open[8];
     char no_delay[8];
     char mptcp[8];

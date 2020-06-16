@@ -118,6 +118,8 @@ build_config(char *prefix, struct manager_ctx *manager, struct server *server)
         fprintf(f, "\"password\":\"%s\"", server->password);
     if (server->key[0] != 0)
         fprintf(f, "\"key\":\"%s\"", server->key);
+    if (server->local_addr[0] != 0)
+        fprintf(f, ",\n\"local_address\":\"%s\"", server->local_addr);
     if (server->method)
         fprintf(f, ",\n\"method\":\"%s\"", server->method);
     else if (manager->method)
@@ -312,6 +314,10 @@ get_server(char *buf, int len)
             } else if (strcmp(name, "key") == 0) {
                 if (value->type == json_string) {
                     strncpy(server->key, value->u.string.ptr, 127);
+                }
+            } else if (strcmp(name, "local_addr") == 0) {
+                if (value->type == json_string) {
+                    strncpy(server->local_addr, value->u.string.ptr, 127);
                 }
             } else if (strcmp(name, "method") == 0) {
                 if (value->type == json_string) {
@@ -884,6 +890,7 @@ main(int argc, char **argv)
     char *conf_path       = NULL;
     char *iface           = NULL;
     char *manager_address = NULL;
+    char *local_addr = NULL;
     char *plugin          = NULL;
     char *plugin_opts     = NULL;
     char *workdir         = NULL;
@@ -922,6 +929,7 @@ main(int argc, char **argv)
         { "plugin-opts",     required_argument, NULL, GETOPT_VAL_PLUGIN_OPTS },
         { "password",        required_argument, NULL, GETOPT_VAL_PASSWORD    },
         { "key",             required_argument, NULL, GETOPT_VAL_KEY         },
+        { "local-address",   required_argument, NULL, GETOPT_VAL_LOCAL_ADDRESS },
         { "workdir",         required_argument, NULL, GETOPT_VAL_WORKDIR     },
         { "help",            no_argument,       NULL, GETOPT_VAL_HELP        },
         { NULL,              0,                 NULL, 0                      }
@@ -1050,6 +1058,9 @@ main(int argc, char **argv)
         }
         if (key == NULL) {
             key = conf->key;
+        }
+        if (local_addr == NULL) {
+            local_addr = conf->local_addr;
         }
         if (method == NULL) {
             method = conf->method;
@@ -1208,6 +1219,7 @@ main(int argc, char **argv)
     manager.mode            = mode;
     manager.password        = password;
     manager.key             = key;
+    manager.local_addr      = local_addr;
     manager.timeout         = timeout;
     manager.method          = method;
     manager.iface           = iface;
@@ -1249,7 +1261,6 @@ main(int argc, char **argv)
     }
 
     server_table = cork_string_hash_table_new(MAX_PORT_NUM, 0);
-
     if (conf != NULL) {
         for (i = 0; i < conf->port_password_num; i++) {
             struct server *server = ss_malloc(sizeof(struct server));
@@ -1263,6 +1274,18 @@ main(int argc, char **argv)
             memset(server, 0, sizeof(struct server));
             strncpy(server->port, conf->port_key[i].port, 7);
             strncpy(server->key, conf->port_key[i].key, 127);
+            add_server(&manager, server);
+        }
+        for (i = 0; i < conf->port_conf_num; i++) {
+            struct server *server = ss_malloc(sizeof(struct server));
+            memset(server, 0, sizeof(struct server));
+            strncpy(server->port, conf->port_conf[i].port, 7);
+            if (conf->port_conf[i].key != NULL)
+                strncpy(server->key, conf->port_conf[i].key, 127);
+            if (conf->port_conf[i].password != NULL)
+                strncpy(server->password, conf->port_conf[i].password, 127);
+            if (conf->port_conf[i].local_addr != NULL)
+                strncpy(server->local_addr, conf->port_conf[i].local_addr, 127);
             add_server(&manager, server);
         }
     }

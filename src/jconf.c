@@ -201,7 +201,7 @@ read_jconf(const char *file)
     }
 
     if (obj->type == json_object) {
-        unsigned int i, j;
+        unsigned int i, j, k;
         for (i = 0; i < obj->u.object.length; i++) {
             char *name        = obj->u.object.values[i].name;
             json_value *value = obj->u.object.values[i].value;
@@ -248,6 +248,37 @@ read_jconf(const char *file)
                                                                     value->u.object.values[j].name_length);
                             conf.port_key[j].key = to_string(v);
                             conf.port_key_num         = j + 1;
+                        }
+                    }
+                }
+            } else if (strcmp(name, "port_conf") == 0) {
+                if (value->type == json_object) {
+                    for (j = 0; j < value->u.object.length; j++) {
+                        if (j >= MAX_PORT_NUM) {
+                            break;
+                        }
+                        json_value *v = value->u.object.values[j].value;
+                        if (v->type == json_object) {
+                            conf.port_conf[j].port = ss_strndup(value->u.object.values[j].name,
+                                                                    value->u.object.values[j].name_length);
+                            for (k = 0; k < v->u.object.length; k++) {
+                                char *namepk        = v->u.object.values[k].name;
+                                json_value *valuepk = v->u.object.values[k].value;
+                                if (strcmp(namepk, "key") == 0) {
+                                    if (valuepk->type == json_string) {
+                                        conf.port_conf[j].key = to_string(valuepk);
+                                    }
+                                } else if (strcmp(namepk, "password") == 0) {
+                                    if (valuepk->type == json_string) {
+                                        conf.port_conf[j].password = to_string(valuepk);
+                                    }
+                                } else if (strcmp(namepk, "local_address") == 0) {
+                                    if (valuepk->type == json_string) {
+                                        conf.port_conf[j].local_addr = to_string(valuepk);
+                                    }
+                                }
+                            }
+                            conf.port_conf_num         = j + 1;
                         }
                     }
                 }
