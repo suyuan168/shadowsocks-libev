@@ -35,7 +35,7 @@ jobs:
       uses: ysurac/ssh-action@master
       with:
         command: |
-          mkdir -p debian
+          mkdir -p deploy/debian
         host: ${{ secrets.OMR_DEPLOY_HOST }}
         user: deploy
         port: ${{ secrets.OMR_DEPLOY_PORT }}
@@ -49,4 +49,4 @@ jobs:
         port: ${{ secrets.OMR_DEPLOY_PORT }}
         key: ${{ secrets.PRIVATE_KEY }}
         source: "packages/*"
-        target: "debian"
+        target: "deploy/debian"
