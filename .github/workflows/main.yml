@@ -31,3 +31,22 @@ jobs:
       with:
         name: Debian packages
         path: packages
+    - name: Deploy - Create directory
+      uses: ysurac/ssh-action@master
+      with:
+        command: |
+          mkdir -p debian
+        host: ${{ secrets.OMR_DEPLOY_HOST }}
+        user: deploy
+        port: ${{ secrets.OMR_DEPLOY_PORT }}
+        key: ${{ secrets.PRIVATE_KEY }}
+        args: -tt
+    - name: Deploy - Copy to server
+      uses: ysurac/scp-action@master
+      with:
+        host: ${{ secrets.OMR_DEPLOY_HOST }}
+        username: deploy
+        port: ${{ secrets.OMR_DEPLOY_PORT }}
+        key: ${{ secrets.PRIVATE_KEY }}
+        source: "packages/*"
+        target: "debian"
