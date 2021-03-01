@@ -41,12 +41,14 @@ jobs:
         port: ${{ secrets.OMR_DEPLOY_PORT }}
         key: ${{ secrets.PRIVATE_KEY }}
         args: -tt
-    - name: Deploy - Copy to server
-      uses: ysurac/scp-action@master
-      with:
-        host: ${{ secrets.OMR_DEPLOY_HOST }}
-        username: deploy
-        port: ${{ secrets.OMR_DEPLOY_PORT }}
-        key: ${{ secrets.PRIVATE_KEY }}
-        source: "packages/*"
-        target: "deploy/debian"
+    - name: Deploy - Upload via rsync
+      uses: ysurac/action-rsync@master
+      env:
+        ARGS: -av
+        TARGET: deploy/package
+        SOURCE: ./packages/
+        KEY: ${{ secrets.PRIVATE_KEY }}
+        USER: deploy
+        HOST: ${{ secrets.OMR_DEPLOY_HOST }}
+        PORT: ${{ secrets.OMR_DEPLOY_PORT }}
+
