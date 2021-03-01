@@ -360,6 +360,10 @@ usage()
 #endif
     printf(
         "       [-U]                       Enable UDP relay and disable TCP relay.\n");
+#ifdef MODULE_REDIR
+    printf(
+        "       [-T]                       Use tproxy instead of redirect (for tcp).\n");
+#endif
 #ifdef MODULE_REMOTE
     printf(
         "       [-6]                       Resovle hostname to IPv6 address first.\n");
@@ -383,6 +387,14 @@ usage()
     printf(
         "                                  with Linux kernel > 3.7.0.\n");
 #endif
+    printf(
+        "       [--tcp-incoming-sndbuf]    Size of the incoming connection TCP send buffer.\n");
+    printf(
+        "       [--tcp-incoming-rcvbuf]    Size of the incoming connection TCP receive buffer.\n");
+    printf(
+        "       [--tcp-outgoing-sndbuf]    Size of the outgoing connection TCP send buffer.\n");
+    printf(
+        "       [--tcp-outgoing-rcvbuf]    Size of the outgoing connection TCP receive buffer.\n");
 #if defined(MODULE_REMOTE) || defined(MODULE_LOCAL)
     printf(
         "       [--acl <acl_file>]         Path to ACL (Access Control List).\n");
