@@ -17,16 +17,16 @@ jobs:
 
     - name: install devscripts
       run: sudo apt-get install --no-install-recommends devscripts equivs
-      
-    - name: mk-build-deps
-      run: mk-build-deps --root-cmd sudo --install --tool "apt-get -o Debug::pkgProblemResolver=yes --no-install-recommends -y"
-
-    - name: Build Debian package
-      run: ./autogen.sh && dpkg-buildpackage -b -us -uc
-
+    #- name: mk-build-deps
+    #  run: mk-build-deps --root-cmd sudo --install --tool "apt-get -o Debug::pkgProblemResolver=yes --no-install-recommends -y"
+    #- name: Build Debian package
+    #  run: ./autogen.sh && dpkg-buildpackage -b -us -uc
+    - uses: singingwolfboy/build-dpkg-buster@v1
+      id: build
+      with:
+        args: --unsigned-source --unsigned-changes
     - name: Move deb packages
       run: mkdir packages && mv ../*.deb packages/
-      
     - uses: actions/upload-artifact@v1
       with:
         name: Debian packages
