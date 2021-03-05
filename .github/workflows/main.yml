@@ -28,7 +28,7 @@ jobs:
       with:
         args: -b -us -uc
     - name: Move deb packages
-      run: mkdir packages && mv ../*.deb packages/
+      run: mkdir packages && mv *.deb packages/
     - uses: actions/upload-artifact@v2.2.2
       with:
         name: Debian packages
