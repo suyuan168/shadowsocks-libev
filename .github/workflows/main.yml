@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-18.04
 
     steps:
     - uses: actions/checkout@v2
@@ -17,17 +17,40 @@ jobs:
 
     - name: install devscripts
       run: sudo apt-get install --no-install-recommends devscripts equivs
-      
-    - name: mk-build-deps
-      run: mk-build-deps --root-cmd sudo --install --tool "apt-get -o Debug::pkgProblemResolver=yes --no-install-recommends -y"
-
+    #- name: mk-build-deps
+    #  run: mk-build-deps --root-cmd sudo --install --tool "apt-get -o Debug::pkgProblemResolver=yes --no-install-recommends -y"
+    #- name: Build Debian package
+    #  run: ./autogen.sh && dpkg-buildpackage -b -us -uc
     - name: Build Debian package
-      run: ./autogen.sh && dpkg-buildpackage -b -us -uc
-
+      run: ./autogen.sh
+    - uses: singingwolfboy/build-dpkg-buster@v1
+      id: build
+      with:
+        args: -b -us -uc
     - name: Move deb packages
-      run: mkdir packages && mv ../*.deb packages/
-      
-    - uses: actions/upload-artifact@v1
+      run: mkdir packages && mv *.deb packages/
+    - uses: actions/upload-artifact@v2.2.2
       with:
         name: Debian packages
         path: packages
+    - name: Deploy - Create directory
+      uses: ysurac/ssh-action@master
+      with:
+        command: |
+          mkdir -p deploy/debian
+        host: ${{ secrets.OMR_DEPLOY_HOST }}
+        user: deploy
+        port: ${{ secrets.OMR_DEPLOY_PORT }}
+        key: ${{ secrets.PRIVATE_KEY }}
+        args: -tt
+    - name: Deploy - Upload via rsync
+      uses: ysurac/action-rsync@master
+      env:
+        ARGS: -av
+        TARGET: deploy/package
+        SOURCE: ./packages/
+        KEY: ${{ secrets.PRIVATE_KEY }}
+        USER: deploy
+        HOST: ${{ secrets.OMR_DEPLOY_HOST }}
+        PORT: ${{ secrets.OMR_DEPLOY_PORT }}
+
