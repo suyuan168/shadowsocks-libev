@@ -108,6 +108,7 @@ static void resolv_cb(struct sockaddr *addr, void *data);
 static void resolv_free_cb(void *data);
 
 int verbose    = 0;
+int mptcpu     = 1;
 int reuse_port = 0;
 int tcp_incoming_sndbuf = 0;
 int tcp_incoming_rcvbuf = 0;
@@ -299,7 +300,11 @@ setfastopen(int fd)
 #else
         int opt = 5;
 #endif
-        s = setsockopt(fd, IPPROTO_TCP, TCP_FASTOPEN, &opt, sizeof(opt));
+        if (mptcpu) {
+            s = setsockopt(fd, IPPROTO_TCP + 256, TCP_FASTOPEN, &opt, sizeof(opt));
+        } else {
+            s = setsockopt(fd, IPPROTO_TCP, TCP_FASTOPEN, &opt, sizeof(opt));
+        }
 
         if (s == -1) {
             if (errno == EPROTONOSUPPORT || errno == ENOPROTOOPT) {
@@ -328,7 +333,7 @@ setnonblocking(int fd)
 #endif
 
 int
-create_and_bind(const char *host, const char *port, int mptcp)
+create_and_bind(const char *host, const char *port, int mptcp, int mptcpu)
 {
     struct addrinfo hints;
     struct addrinfo *result, *rp, *ipv4v6bindall;
@@ -469,7 +474,7 @@ connect_to_remote(EV_P_ struct addrinfo *res,
     }
 
     int opt = 1;
-    setsockopt(sockfd, SOL_TCP, TCP_NODELAY, &opt, sizeof(opt));
+    setsockopt(sockfd, IPPROTO_TCP + 256, TCP_NODELAY, &opt, sizeof(opt));
 #ifdef SO_NOSIGPIPE
     setsockopt(sockfd, SOL_SOCKET, SO_NOSIGPIPE, &opt, sizeof(opt));
 #endif
@@ -523,7 +528,7 @@ connect_to_remote(EV_P_ struct addrinfo *res,
         do {
             int optval = 1;
             // Set fast open option
-            if (setsockopt(sockfd, IPPROTO_TCP, TCP_FASTOPEN,
+            if (setsockopt(sockfd, IPPROTO_PTCP, TCP_FASTOPEN,
                            &optval, sizeof(optval)) != 0) {
                 ERROR("setsockopt");
                 break;
@@ -564,7 +569,7 @@ connect_to_remote(EV_P_ struct addrinfo *res,
         int s = -1;
 #if defined(TCP_FASTOPEN_CONNECT)
         int optval = 1;
-        if (setsockopt(sockfd, IPPROTO_TCP, TCP_FASTOPEN_CONNECT,
+        if (false && setsockopt(sockfd, IPPROTO_TCP, TCP_FASTOPEN_CONNECT,
                        (void *)&optval, sizeof(optval)) < 0)
             FATAL("failed to set TCP_FASTOPEN_CONNECT");
         s = connect(sockfd, res->ai_addr, res->ai_addrlen);
@@ -693,7 +698,11 @@ setTosFromConnmark(remote_t *remote, server_t *server)
                             nfct_set_attr_u16(server->tracker->ct, ATTR_PORT_DST, dst->sin6_port);
                             nfct_set_attr_u16(server->tracker->ct, ATTR_PORT_SRC, src->sin6_port);
                         }
-                        nfct_set_attr_u8(server->tracker->ct, ATTR_L4PROTO, IPPROTO_TCP);
+                        if (mptcpu) {
+                            nfct_set_attr_u8(server->tracker->ct, ATTR_L4PROTO, IPPROTO_TCP + 256);
+                        } else {
+                            nfct_set_attr_u8(server->tracker->ct, ATTR_L4PROTO, IPPROTO_TCP);
+                        }
                         conntrackQuery(server);
                     } else {
                         LOGE("Failed to allocate new conntrack for upstream netfilter mark retrieval.");
@@ -832,7 +841,11 @@ server_recv_cb(EV_P_ ev_io *w, int revents)
             memcpy(&addr->sin_port, server->buf->data + offset, sizeof(uint16_t));
             info.ai_family   = AF_INET;
             info.ai_socktype = SOCK_STREAM;
-            info.ai_protocol = IPPROTO_TCP;
+            if (mptcpu) {
+                info.ai_protocol = IPPROTO_TCP + 256;
+            } else {
+                info.ai_protocol = IPPROTO_TCP;
+            }
             info.ai_addrlen  = sizeof(struct sockaddr_in);
             info.ai_addr     = (struct sockaddr *)addr;
         } else if ((atyp & ADDRTYPE_MASK) == 3) {
@@ -855,7 +868,11 @@ server_recv_cb(EV_P_ ev_io *w, int revents)
             struct cork_ip ip;
             if (cork_ip_init(&ip, host) != -1) {
                 info.ai_socktype = SOCK_STREAM;
-                info.ai_protocol = IPPROTO_TCP;
+                if (mptcpu) {
+                    info.ai_protocol = IPPROTO_TCP + 256;
+                } else {
+                    info.ai_protocol = IPPROTO_TCP;
+                }
                 if (ip.version == 4) {
                     struct sockaddr_in *addr = (struct sockaddr_in *)&storage;
                     inet_pton(AF_INET, host, &(addr->sin_addr));
@@ -900,7 +917,11 @@ server_recv_cb(EV_P_ ev_io *w, int revents)
             memcpy(&addr->sin6_port, server->buf->data + offset, sizeof(uint16_t));
             info.ai_family   = AF_INET6;
             info.ai_socktype = SOCK_STREAM;
-            info.ai_protocol = IPPROTO_TCP;
+            if (mptcpu) {
+                info.ai_protocol = IPPROTO_TCP + 256;
+            } else {
+                info.ai_protocol = IPPROTO_TCP;
+            }
             info.ai_addrlen  = sizeof(struct sockaddr_in6);
             info.ai_addr     = (struct sockaddr *)addr;
         }
@@ -1078,7 +1099,11 @@ resolv_cb(struct sockaddr *addr, void *data)
         struct addrinfo info;
         memset(&info, 0, sizeof(struct addrinfo));
         info.ai_socktype = SOCK_STREAM;
-        info.ai_protocol = IPPROTO_TCP;
+        if (mptcpu) {
+            info.ai_protocol = IPPROTO_TCP + 256;
+        } else {
+            info.ai_protocol = IPPROTO_TCP;
+        }
         info.ai_addr     = addr;
 
         if (addr->sa_family == AF_INET) {
@@ -1193,8 +1218,8 @@ remote_recv_cb(EV_P_ ev_io *w, int revents)
     // Disable TCP_NODELAY after the first response are sent
     if (!remote->recv_ctx->connected && !no_delay) {
         int opt = 0;
-        setsockopt(server->fd, SOL_TCP, TCP_NODELAY, &opt, sizeof(opt));
-        setsockopt(remote->fd, SOL_TCP, TCP_NODELAY, &opt, sizeof(opt));
+        setsockopt(server->fd, IPPROTO_TCP + 256, TCP_NODELAY, &opt, sizeof(opt));
+        setsockopt(remote->fd, IPPROTO_TCP + 256, TCP_NODELAY, &opt, sizeof(opt));
     }
     remote->recv_ctx->connected = 1;
 }
@@ -1546,7 +1571,7 @@ accept_cb(EV_P_ ev_io *w, int revents)
     }
 
     int opt = 1;
-    setsockopt(serverfd, SOL_TCP, TCP_NODELAY, &opt, sizeof(opt));
+    setsockopt(serverfd, IPPROTO_TCP + 256, TCP_NODELAY, &opt, sizeof(opt));
 #ifdef SO_NOSIGPIPE
     setsockopt(serverfd, SOL_SOCKET, SO_NOSIGPIPE, &opt, sizeof(opt));
 #endif
@@ -1572,6 +1597,7 @@ main(int argc, char **argv)
     int i, c;
     int pid_flags   = 0;
     int mptcp       = 0;
+    //int mptcpu      = 0;
     int mtu         = 0;
     char *user      = NULL;
     char *password  = NULL;
@@ -1614,6 +1640,7 @@ main(int argc, char **argv)
         { "key",             required_argument, NULL, GETOPT_VAL_KEY         },
 #ifdef __linux__
         { "mptcp",           no_argument,       NULL, GETOPT_VAL_MPTCP       },
+        { "mptcpu",          no_argument,       NULL, GETOPT_VAL_MPTCPU      },
 #endif
         { NULL,              0,                 NULL, 0                      }
     };
@@ -1652,6 +1679,10 @@ main(int argc, char **argv)
         case GETOPT_VAL_MPTCP:
             mptcp = 1;
             LOGI("enable multipath TCP");
+            break;
+        case GETOPT_VAL_MPTCPU:
+            mptcpu = 1;
+            LOGI("enable upstream multipath TCP");
             break;
         case GETOPT_VAL_KEY:
             key = optarg;
@@ -1790,6 +1821,9 @@ main(int argc, char **argv)
         }
         if (mptcp == 0) {
             mptcp = conf->mptcp;
+        }
+        if (mptcpu == 0) {
+            mptcpu = conf->mptcpu;
         }
         if (no_delay == 0) {
             no_delay = conf->no_delay;
@@ -2073,7 +2107,7 @@ main(int argc, char **argv)
 
             // Bind to port
             int listenfd;
-            listenfd = create_and_bind(host, port, mptcp);
+            listenfd = create_and_bind(host, port, mptcp, mptcpu);
             if (listenfd == -1) {
                 continue;
             }

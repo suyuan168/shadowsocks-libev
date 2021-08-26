@@ -549,7 +549,7 @@ remote_send_cb(EV_P_ ev_io *w, int revents)
         if (remote->addr != NULL) {
 #if defined(TCP_FASTOPEN_CONNECT)
             int optval = 1;
-            if (setsockopt(remote->fd, IPPROTO_TCP, TCP_FASTOPEN_CONNECT,
+            if (false && setsockopt(remote->fd, IPPROTO_TCP, TCP_FASTOPEN_CONNECT,
                            (void *)&optval, sizeof(optval)) < 0)
                 FATAL("failed to set TCP_FASTOPEN_CONNECT");
             s = connect(remote->fd, remote->addr, get_sockaddr_len(remote->addr));
@@ -769,8 +769,15 @@ accept_cb(EV_P_ ev_io *w, int revents)
 
     int index                    = rand() % listener->remote_num;
     struct sockaddr *remote_addr = listener->remote_addr[index];
+    int remotefd;
 
-    int remotefd = socket(remote_addr->sa_family, SOCK_STREAM, IPPROTO_TCP);
+
+    if (listener->mptcpu >= 1) {
+        remotefd = socket(remote_addr->sa_family, SOCK_STREAM, IPPROTO_TCP + 256);
+    } else {
+        remotefd = socket(remote_addr->sa_family, SOCK_STREAM, IPPROTO_TCP);
+    }
+
     if (remotefd == -1) {
         ERROR("socket");
         return;
@@ -795,7 +802,7 @@ accept_cb(EV_P_ ev_io *w, int revents)
     // Set non blocking
     setnonblocking(remotefd);
 
-    if (listener->tos >= 0) {
+    if (listener->mptcpu < 1 && listener->tos >= 0) {
         int rc = setsockopt(remotefd, IPPROTO_IP, IP_TOS, &listener->tos, sizeof(listener->tos));
         if (rc < 0 && errno != ENOPROTOOPT) {
             LOGE("setting ipv4 dscp failed: %d", errno);
@@ -808,6 +815,7 @@ accept_cb(EV_P_ ev_io *w, int revents)
 #endif
     }
 
+    
     // Enable MPTCP
     if (listener->mptcp > 1) {
         int err = setsockopt(remotefd, SOL_TCP, listener->mptcp, &opt, sizeof(opt));
@@ -827,6 +835,7 @@ accept_cb(EV_P_ ev_io *w, int revents)
             ERROR("failed to enable multipath TCP");
         }
     }
+    
 
     if (tcp_outgoing_sndbuf > 0) {
         setsockopt(remotefd, SOL_SOCKET, SO_SNDBUF, &tcp_outgoing_sndbuf, sizeof(int));
@@ -892,6 +901,7 @@ main(int argc, char **argv)
     int i, c;
     int pid_flags    = 0;
     int mptcp        = 0;
+    int mptcpu       = 0;
     int mtu          = 0;
     char *user       = NULL;
     char *local_port = NULL;
@@ -922,6 +932,7 @@ main(int argc, char **argv)
         { "fast-open",   no_argument,       NULL, GETOPT_VAL_FAST_OPEN   },
         { "mtu",         required_argument, NULL, GETOPT_VAL_MTU         },
         { "mptcp",       no_argument,       NULL, GETOPT_VAL_MPTCP       },
+        { "mptcpu",      no_argument,       NULL, GETOPT_VAL_MPTCPU      },
         { "plugin",      required_argument, NULL, GETOPT_VAL_PLUGIN      },
         { "plugin-opts", required_argument, NULL, GETOPT_VAL_PLUGIN_OPTS },
         { "reuse-port",  no_argument,       NULL, GETOPT_VAL_REUSE_PORT  },
@@ -953,6 +964,10 @@ main(int argc, char **argv)
         case GETOPT_VAL_MPTCP:
             mptcp = 1;
             LOGI("enable multipath TCP");
+            break;
+        case GETOPT_VAL_MPTCPU:
+            mptcpu = 1;
+            LOGI("enable upstream multipath TCP");
             break;
         case GETOPT_VAL_NODELAY:
             no_delay = 1;
@@ -1110,6 +1125,9 @@ main(int argc, char **argv)
         }
         if (mptcp == 0) {
             mptcp = conf->mptcp;
+        }
+        if (mptcpu == 0) {
+            mptcpu = conf->mptcpu;
         }
         if (no_delay == 0) {
             no_delay = conf->no_delay;
@@ -1309,6 +1327,7 @@ main(int argc, char **argv)
     }
     listen_ctx.timeout = atoi(timeout);
     listen_ctx.mptcp   = mptcp;
+    listen_ctx.mptcpu  = mptcpu;
 
     struct ev_loop *loop = EV_DEFAULT;
 

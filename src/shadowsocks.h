@@ -39,6 +39,7 @@ typedef struct {
     int mode;             // enable udp relay
     int mtu;              // MTU of interface
     int mptcp;            // enable multipath TCP
+    int mptcpu;           // enable multipath TCP
     int verbose;          // verbose mode
 } profile_t;
 

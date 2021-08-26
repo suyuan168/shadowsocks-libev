@@ -100,6 +100,7 @@ typedef struct {
     int mode;
     int mtu;
     int mptcp;
+    int mptcpu;
     int ipv6_first;
     int no_delay;
     int tcp_tproxy;
