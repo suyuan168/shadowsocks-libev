@@ -962,12 +962,12 @@ main(int argc, char **argv)
             LOGI("set MTU to %d", mtu);
             break;
         case GETOPT_VAL_MPTCP:
-            mptcp = 1;
+            if (access("/proc/sys/net/mptcp/mptcp_enabled", F_OK) == 0) {
+                mptcp = 1;
+            } else {
+                mptcpu = 1;
+            }
             LOGI("enable multipath TCP");
-            break;
-        case GETOPT_VAL_MPTCPU:
-            mptcpu = 1;
-            LOGI("enable upstream multipath TCP");
             break;
         case GETOPT_VAL_NODELAY:
             no_delay = 1;
@@ -1124,10 +1124,11 @@ main(int argc, char **argv)
             mtu = conf->mtu;
         }
         if (mptcp == 0) {
-            mptcp = conf->mptcp;
-        }
-        if (mptcpu == 0) {
-            mptcpu = conf->mptcpu;
+            if (access("/proc/sys/net/mptcp/mptcp_enabled", F_OK) == 0) {
+                mptcp = conf->mptcp;
+            } else {
+                mptcpu = conf->mptcp;
+            }
         }
         if (no_delay == 0) {
             no_delay = conf->no_delay;

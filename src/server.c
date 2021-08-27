@@ -108,7 +108,7 @@ static void resolv_cb(struct sockaddr *addr, void *data);
 static void resolv_free_cb(void *data);
 
 int verbose    = 0;
-int mptcpu     = 1;
+int mptcpu     = 0;
 int reuse_port = 0;
 int tcp_incoming_sndbuf = 0;
 int tcp_incoming_rcvbuf = 0;
@@ -1691,12 +1691,12 @@ main(int argc, char **argv)
             plugin_opts = optarg;
             break;
         case GETOPT_VAL_MPTCP:
-            mptcp = 1;
+            if (access("/proc/sys/net/mptcp/mptcp_enabled", F_OK) == 0) {
+                mptcp = 1;
+            } else {
+                mptcpu = 1;
+            }
             LOGI("enable multipath TCP");
-            break;
-        case GETOPT_VAL_MPTCPU:
-            mptcpu = 1;
-            LOGI("enable upstream multipath TCP");
             break;
         case GETOPT_VAL_KEY:
             key = optarg;
@@ -1834,10 +1834,11 @@ main(int argc, char **argv)
             mtu = conf->mtu;
         }
         if (mptcp == 0) {
-            mptcp = conf->mptcp;
-        }
-        if (mptcpu == 0) {
-            mptcpu = conf->mptcpu;
+            if (access("/proc/sys/net/mptcp/mptcp_enabled", F_OK) == 0) {
+                mptcp = conf->mptcp;
+            } else {
+                mptcpu = conf->mptcp;
+            }
         }
         if (no_delay == 0) {
             no_delay = conf->no_delay;
