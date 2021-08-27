@@ -380,6 +380,9 @@ create_and_bind(const char *host, const char *port, int mptcp, int mptcpu)
         }
     }
 
+    if (mptcpu) {
+        rp->ai_protocol = IPPROTO_TCP + 256;
+    }
     for (/*rp = result*/; rp != NULL; rp = rp->ai_next) {
         listen_sock = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
         if (listen_sock == -1) {
@@ -474,7 +477,11 @@ connect_to_remote(EV_P_ struct addrinfo *res,
     }
 
     int opt = 1;
-    setsockopt(sockfd, IPPROTO_TCP + 256, TCP_NODELAY, &opt, sizeof(opt));
+    if (mptcpu) {
+        setsockopt(sockfd, IPPROTO_TCP + 256, TCP_NODELAY, &opt, sizeof(opt));
+    } else {
+        setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt));
+    }
 #ifdef SO_NOSIGPIPE
     setsockopt(sockfd, SOL_SOCKET, SO_NOSIGPIPE, &opt, sizeof(opt));
 #endif
@@ -528,7 +535,7 @@ connect_to_remote(EV_P_ struct addrinfo *res,
         do {
             int optval = 1;
             // Set fast open option
-            if (setsockopt(sockfd, IPPROTO_PTCP, TCP_FASTOPEN,
+            if (setsockopt(sockfd, IPPROTO_TCP, TCP_FASTOPEN,
                            &optval, sizeof(optval)) != 0) {
                 ERROR("setsockopt");
                 break;
@@ -1218,8 +1225,11 @@ remote_recv_cb(EV_P_ ev_io *w, int revents)
     // Disable TCP_NODELAY after the first response are sent
     if (!remote->recv_ctx->connected && !no_delay) {
         int opt = 0;
-        setsockopt(server->fd, IPPROTO_TCP + 256, TCP_NODELAY, &opt, sizeof(opt));
-        setsockopt(remote->fd, IPPROTO_TCP + 256, TCP_NODELAY, &opt, sizeof(opt));
+        if (mptcpu) {
+            setsockopt(server->fd, IPPROTO_TCP + 256, TCP_NODELAY, &opt, sizeof(opt));
+        } else {
+            setsockopt(remote->fd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt));
+        }
     }
     remote->recv_ctx->connected = 1;
 }
@@ -1571,7 +1581,11 @@ accept_cb(EV_P_ ev_io *w, int revents)
     }
 
     int opt = 1;
-    setsockopt(serverfd, IPPROTO_TCP + 256, TCP_NODELAY, &opt, sizeof(opt));
+    if (mptcpu) {
+        setsockopt(serverfd, IPPROTO_TCP + 256, TCP_NODELAY, &opt, sizeof(opt));
+    } else {
+        setsockopt(serverfd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt));
+    }
 #ifdef SO_NOSIGPIPE
     setsockopt(serverfd, SOL_SOCKET, SO_NOSIGPIPE, &opt, sizeof(opt));
 #endif
