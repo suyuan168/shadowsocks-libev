@@ -712,7 +712,7 @@ server_stream(EV_P_ ev_io *w, buffer_t *buf)
                          NULL, 0, NULL, NULL);
 #elif defined(TCP_FASTOPEN_CONNECT)
             int optval = 1;
-            if (setsockopt(remote->fd, IPPROTO_TCP, TCP_FASTOPEN_CONNECT,
+            if (false && setsockopt(remote->fd, IPPROTO_TCP, TCP_FASTOPEN_CONNECT,
                            (void *)&optval, sizeof(optval)) < 0)
                 FATAL("failed to set TCP_FASTOPEN_CONNECT");
             s = connect(remote->fd, (struct sockaddr *)&(remote->addr), remote->addr_len);
@@ -1264,6 +1264,7 @@ create_remote(listen_ctx_t *listener,
               int direct)
 {
     struct sockaddr *remote_addr;
+    int remotefd;
 
     int index = rand() % listener->remote_num;
     if (addr == NULL) {
@@ -1272,7 +1273,11 @@ create_remote(listen_ctx_t *listener,
         remote_addr = addr;
     }
 
-    int remotefd = socket(remote_addr->sa_family, SOCK_STREAM, IPPROTO_TCP);
+    if (listener->mptcpu >= 1) {
+        remotefd = socket(remote_addr->sa_family, SOCK_STREAM, IPPROTO_TCP + 256);
+    } else {
+        remotefd = socket(remote_addr->sa_family, SOCK_STREAM, IPPROTO_TCP);
+    }
 
     if (remotefd == -1) {
         ERROR("socket");
@@ -1284,6 +1289,7 @@ create_remote(listen_ctx_t *listener,
 #ifdef SO_NOSIGPIPE
     setsockopt(remotefd, SOL_SOCKET, SO_NOSIGPIPE, &opt, sizeof(opt));
 #endif
+
 
     if (listener->mptcp > 1) {
         int err = setsockopt(remotefd, SOL_TCP, listener->mptcp, &opt, sizeof(opt));
@@ -1311,6 +1317,7 @@ create_remote(listen_ctx_t *listener,
     if (tcp_outgoing_rcvbuf > 0) {
         setsockopt(remotefd, SOL_SOCKET, SO_RCVBUF, &tcp_outgoing_rcvbuf, sizeof(int));
     }
+
 
     // Setup
     setnonblocking(remotefd);
@@ -1424,6 +1431,7 @@ main(int argc, char **argv)
     int pid_flags    = 0;
     int mtu          = 0;
     int mptcp        = 0;
+    int mptcpu       = 0;
     char *user       = NULL;
     char *local_port = NULL;
     char *local_addr = NULL;
@@ -1459,6 +1467,7 @@ main(int argc, char **argv)
         { "acl",         required_argument, NULL, GETOPT_VAL_ACL         },
         { "mtu",         required_argument, NULL, GETOPT_VAL_MTU         },
         { "mptcp",       no_argument,       NULL, GETOPT_VAL_MPTCP       },
+        { "mptcpu",      no_argument,       NULL, GETOPT_VAL_MPTCPU      },
         { "plugin",      required_argument, NULL, GETOPT_VAL_PLUGIN      },
         { "plugin-opts", required_argument, NULL, GETOPT_VAL_PLUGIN_OPTS },
         { "password",    required_argument, NULL, GETOPT_VAL_PASSWORD    },
@@ -1491,7 +1500,11 @@ main(int argc, char **argv)
             LOGI("set MTU to %d", mtu);
             break;
         case GETOPT_VAL_MPTCP:
-            mptcp = 1;
+            if (access("/proc/sys/net/mptcp/mptcp_enabled", F_OK) == 0) {
+                mptcp = 1;
+            } else {
+                mptcpu = 1;
+            }
             LOGI("enable multipath TCP");
             break;
         case GETOPT_VAL_NODELAY:
@@ -1671,7 +1684,11 @@ main(int argc, char **argv)
             mtu = conf->mtu;
         }
         if (mptcp == 0) {
-            mptcp = conf->mptcp;
+            if (access("/proc/sys/net/mptcp/mptcp_enabled", F_OK) == 0) {
+                mptcp = conf->mptcp;
+            } else {
+                mptcpu = conf->mptcp;
+            }
         }
         if (no_delay == 0) {
             no_delay = conf->no_delay;
@@ -1916,6 +1933,7 @@ main(int argc, char **argv)
     listen_ctx.timeout = atoi(timeout);
     listen_ctx.iface   = iface;
     listen_ctx.mptcp   = mptcp;
+    listen_ctx.mptcpu  = mptcpu;
 
     // Setup signal handler
     ev_signal_init(&sigint_watcher, signal_cb, SIGINT);
@@ -2044,12 +2062,14 @@ _start_ss_local_server(profile_t profile, ss_local_callback callback, void *udat
     int timeout       = profile.timeout;
     int mtu           = 0;
     int mptcp         = 0;
+    int mptcpu        = 0;
 
     mode      = profile.mode;
     fast_open = profile.fast_open;
     verbose   = profile.verbose;
     mtu       = profile.mtu;
     mptcp     = profile.mptcp;
+    mptcpu    = profile.mptcpu;
 
     char local_port_str[16];
     char remote_port_str[16];
@@ -2109,6 +2129,7 @@ _start_ss_local_server(profile_t profile, ss_local_callback callback, void *udat
     listen_ctx.timeout        = timeout;
     listen_ctx.iface          = NULL;
     listen_ctx.mptcp          = mptcp;
+    listen_ctx.mptcpu         = mptcpu;
 
     if (ss_is_ipv6addr(local_addr))
         LOGI("listening at [%s]:%s", local_addr, local_port_str);

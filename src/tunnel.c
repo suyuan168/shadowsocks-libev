@@ -82,6 +82,7 @@ int vpn = 0;
 
 int verbose    = 0;
 int reuse_port = 0;
+int mptcpu     = 0;
 int tcp_incoming_sndbuf = 0;
 int tcp_incoming_rcvbuf = 0;
 int tcp_outgoing_sndbuf = 0;
@@ -375,8 +376,13 @@ remote_recv_cb(EV_P_ ev_io *w, int revents)
     // Disable TCP_NODELAY after the first response are sent
     if (!remote->recv_ctx->connected && !no_delay) {
         int opt = 0;
-        setsockopt(server->fd, SOL_TCP, TCP_NODELAY, &opt, sizeof(opt));
-        setsockopt(remote->fd, SOL_TCP, TCP_NODELAY, &opt, sizeof(opt));
+        if (mptcpu) {
+            setsockopt(server->fd, IPPROTO_TCP + 256, TCP_NODELAY, &opt, sizeof(opt));
+            setsockopt(remote->fd, IPPROTO_TCP + 256, TCP_NODELAY, &opt, sizeof(opt));
+        } else {
+            setsockopt(server->fd, SOL_TCP, TCP_NODELAY, &opt, sizeof(opt));
+            setsockopt(remote->fd, SOL_TCP, TCP_NODELAY, &opt, sizeof(opt));
+        }
     }
     remote->recv_ctx->connected = 1;
 }
@@ -712,6 +718,7 @@ close_and_free_server(EV_P_ server_t *server)
 static void
 accept_cb(EV_P_ ev_io *w, int revents)
 {
+    int remotefd;
     struct listen_ctx *listener = (struct listen_ctx *)w;
     int serverfd                = accept(listener->fd, NULL, NULL);
     if (serverfd == -1) {
@@ -720,7 +727,11 @@ accept_cb(EV_P_ ev_io *w, int revents)
     }
     setnonblocking(serverfd);
     int opt = 1;
-    setsockopt(serverfd, SOL_TCP, TCP_NODELAY, &opt, sizeof(opt));
+    if (mptcpu) {
+        setsockopt(serverfd, IPPROTO_TCP + 256, TCP_NODELAY, &opt, sizeof(opt));
+    } else {
+        setsockopt(serverfd, SOL_TCP, TCP_NODELAY, &opt, sizeof(opt));
+    }
 #ifdef SO_NOSIGPIPE
     setsockopt(serverfd, SOL_SOCKET, SO_NOSIGPIPE, &opt, sizeof(opt));
 #endif
@@ -736,7 +747,11 @@ accept_cb(EV_P_ ev_io *w, int revents)
     int index                    = rand() % listener->remote_num;
     struct sockaddr *remote_addr = listener->remote_addr[index];
 
-    int remotefd = socket(remote_addr->sa_family, SOCK_STREAM, IPPROTO_TCP);
+    if (mptcpu) {
+        remotefd = socket(remote_addr->sa_family, SOCK_STREAM, IPPROTO_TCP + 256);
+    } else {
+        remotefd = socket(remote_addr->sa_family, SOCK_STREAM, IPPROTO_TCP);
+    }
     if (remotefd == -1) {
         ERROR("socket");
         return;
@@ -762,7 +777,11 @@ accept_cb(EV_P_ ev_io *w, int revents)
 
     int keepAlive = 1;
     setsockopt(remotefd, SOL_SOCKET, SO_KEEPALIVE, (void *)&keepAlive, sizeof(keepAlive));
-    setsockopt(remotefd, SOL_TCP, TCP_NODELAY, &opt, sizeof(opt));
+    if (mptcpu) {
+        setsockopt(remotefd, IPPROTO_TCP + 256, TCP_NODELAY, &opt, sizeof(opt));
+    } else {
+        setsockopt(remotefd, SOL_TCP, TCP_NODELAY, &opt, sizeof(opt));
+    }
 #ifdef SO_NOSIGPIPE
     setsockopt(remotefd, SOL_SOCKET, SO_NOSIGPIPE, &opt, sizeof(opt));
 #endif
@@ -948,7 +967,11 @@ main(int argc, char **argv)
             LOGI("set MTU to %d", mtu);
             break;
         case GETOPT_VAL_MPTCP:
-            mptcp = 1;
+            if (access("/proc/sys/net/mptcp/mptcp_enabled", F_OK) == 0) {
+                mptcp = 1;
+            } else {
+                mptcpu = 1;
+            }
             LOGI("enable multipath TCP");
             break;
         case GETOPT_VAL_NODELAY:
@@ -1114,7 +1137,11 @@ main(int argc, char **argv)
             mtu = conf->mtu;
         }
         if (mptcp == 0) {
-            mptcp = conf->mptcp;
+            if (access("/proc/sys/net/mptcp/mptcp_enabled", F_OK) == 0) {
+                mptcp = conf->mptcp;
+            } else {
+                mptcpu = conf->mptcp;
+            }
         }
         if (no_delay == 0) {
             no_delay = conf->no_delay;
