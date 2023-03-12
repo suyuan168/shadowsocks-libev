@@ -1,12 +1,12 @@
 [submodule "libcork"]
 	path = libcork
-	url = https://github.55860.com/suyuan168/libcork.git
+	url = https://hub.55860.com/suyuan168/libcork.git
     ignore = dirty
 [submodule "libipset"]
 	path = libipset
-	url = https://github.55860.com/suyuan168/ipset.git
+	url = https://hub.55860.com/suyuan168/ipset.git
     ignore = dirty
 [submodule "libbloom"]
 	path = libbloom
-	url = https://github.55860.com/suyuan168/libbloom.git
+	url = https://hub.55860.com/suyuan168/libbloom.git
     ignore = dirty
