@@ -684,7 +684,7 @@ manager_recv_cb(EV_P_ ev_io *w, int revents)
         while ((entry = cork_hash_table_iterator_next(&iter)) != NULL) {
             struct server *server = (struct server *)entry->value;
             char *method          = server->method ? server->method : manager->method;
-            char *passkey         = server->key ? server->key : server->password;
+            char *passkey         = server->key[0] != 0 ? server->key : server->password;
             size_t pos            = strlen(buf);
             size_t entry_len      = strlen(server->port) + strlen(passkey) + strlen(method);
             if (pos > BUF_SIZE - entry_len - 50) {
